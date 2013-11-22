@@ -15,15 +15,13 @@ public class ACASModule {
 	static final String EXTRA_FROM = "from";
 	
 	public String mPackage;
-	public String mId;
     public String mName;
     public String mVersion;
 	public String mEntryPoint;
 	public String mImgUrl;
 	
-	public ACASModule(String modulePackage, String moduleId, String moduleName, String moduleVersion, String moduleEntryPoint, String moduleImgUrl) {
+	public ACASModule(String modulePackage,  String moduleName, String moduleVersion, String moduleEntryPoint, String moduleImgUrl) {
 		mPackage = modulePackage;
-		mId = moduleId;
 		mName = moduleName;
 		mVersion = moduleVersion;
 		mEntryPoint = moduleEntryPoint;
@@ -39,7 +37,6 @@ public class ACASModule {
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
 		sb.append("package=").append(mPackage).append("\n");
-		sb.append("id=").append(mId).append("\n");
 		sb.append("name=").append(mName).append("\n");
 		sb.append("version=").append(mVersion).append("\n");
 		sb.append("entryPoint=").append(mEntryPoint).append("\n");
@@ -88,7 +85,6 @@ public class ACASModule {
 		return true;
 	}
 
-
     /**
      * Method called to open the Play Store in order to see the app description of the current
      * module. Should be use to allow the user to download it.
@@ -111,4 +107,5 @@ public class ACASModule {
         }
         return result;
     }
+
 }

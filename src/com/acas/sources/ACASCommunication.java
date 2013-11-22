@@ -1,6 +1,5 @@
 package com.acas.sources;
 
-import java.lang.String;
 import java.util.ArrayList;
 import java.util.Iterator;
 
@@ -13,6 +12,8 @@ import android.util.Log;
 class ACASCommunication {
 
 	static final String TAG = ACASCommunication.class.getSimpleName();
+	
+	static final String EXCEPTION_INVALIDE_KEY = "The keyApi is not set or invalid";
 
 	static final String EXTRA_SENDER_ID = "com.acas.sources.EXTRA_SENDER_ID";
 	static final String EXTRA_RECEIVER_ID = "com.acas.sources.EXTRA_RECEIVER_ID";
@@ -24,7 +25,7 @@ class ACASCommunication {
 	
 	static int sNumberMessageSended = 0;
 	static int sNumberMessageReceived = 0;
-	static int sNumberMessageReceivedMax = 1000; // TODO a prendre en compte
+	static int sNumberMessageReceivedMax = 1000;
 
 	/**
 	 * Add an listener for received messages
@@ -54,8 +55,10 @@ class ACASCommunication {
 		if (ACAS.DEBUG_MODE) {
 			Log.i(TAG, "onMessageReceiv");
 		}
+		
+		// Check the key validity
 		if (!ACAS.mSecurity.mIsValid) {
-			throw new ACASInvalidKeyException("The keyApi is not set or invalid");
+			throw new ACASInvalidKeyException(EXCEPTION_INVALIDE_KEY);
 		}
 		
 		// Check if message is for us
@@ -69,6 +72,24 @@ class ACASCommunication {
 		// Save into received list
 		synchronized (mReceivedList) {
 			mReceivedList.add(message);
+			if (mReceivedList.size() >= sNumberMessageReceivedMax) {
+				if (ACAS.DEBUG_MODE) {
+					Log.i(TAG, "Received list contain more than "+ sNumberMessageReceivedMax +" messages...");
+				}
+				clearAllDeliveredMessageFromReceivList();
+				if (ACAS.DEBUG_MODE) {
+					Log.i(TAG, "Received list cleared from delivered message");
+				}
+				if (mReceivedList.size() >= sNumberMessageReceivedMax) {
+					if (ACAS.DEBUG_MODE) {
+						Log.i(TAG, "Received list always contain more than "+ sNumberMessageReceivedMax +" messages...");
+					}
+					mReceivedList.clear();
+					if (ACAS.DEBUG_MODE) {
+						Log.i(TAG, "Received list cleared !");
+					}
+				}
+			}
 			sNumberMessageReceived++;
 		}
 
@@ -277,7 +298,7 @@ class ACASCommunication {
 			}
 		}
 	}
-
+	
 	/**
 	 * Use this method for clear all message from the send and received list
 	 */

@@ -13,10 +13,7 @@ import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 
 /**
- * This is the main class of the ACAS framework, use it for access all features.
- * 
- * @author Christophe
- *
+ * <p>This is the main class of the ACAS framework, use it for access all ACAS features.</p>
  */
 public class ACAS {
 
@@ -39,7 +36,7 @@ public class ACAS {
 	static ArrayList<ACASModule> mModuleList = new ArrayList<ACASModule>();
     static ACASListModuleReceiver mListModuleReceiver;
 
-    private static ACASModule mMother;
+    static ACASModule mMother;
 
 	/**
 	 * <p>Use for initiate the ACAS library</p>
@@ -359,6 +356,10 @@ public class ACAS {
      * @return the module
      */
     public static ACASModule getMother() {
+        if (ACAS.mMother == null) {
+            ACASModuleDAO m = new ACASModuleDAO(mContext);
+            ACAS.mMother = m.selectMother();
+        }
         return ACAS.mMother;
     }
 
@@ -431,7 +432,6 @@ public class ACAS {
     public static int clearAllUndeliveredMessageFromReceivList() {
 		return mCommunication.clearAllUndeliveredMessageFromReceivList();
 	}
-
 
     public static void setMother(ACASModule mother) {
         ACAS.mMother = mother;

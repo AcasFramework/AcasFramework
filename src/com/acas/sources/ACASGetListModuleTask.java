@@ -19,15 +19,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Context;
-import android.database.Cursor;
 import android.os.AsyncTask;
 import android.util.Log;
 
 import com.acas.sources.exception.ACASInvalidKeyException;
-import com.acas.sources.provider.ACASContract.ModuleTable;
 
 public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer> {
 
@@ -52,12 +48,15 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
     static final String JSON_NODE_VERSION = "version";
     static final String JSON_MOTHER = "mother";
 	static final String JSON_NODE_ENTRYPOINT = "entrypoint";
+	static final String JSON_NONE = "none";
 
 	private Boolean mIsLaunched = false;
 	private Context mContext;
+    private ACASModuleDAO moduleDAO;
 
-	public ACASGetListModuleTask(Context context) {
+    public ACASGetListModuleTask(Context context) {
 		mContext = context;
+        moduleDAO = new ACASModuleDAO(mContext);
 	}
 
 	/**
@@ -88,10 +87,16 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
 
 		// Extract parameter
 		if (params.length == 0) {
-			return STATUS_INVALID_KEY;
+            if (ACAS.DEBUG_MODE) {
+                Log.w(TAG, "invalid security key");
+            }
+            return STATUS_INVALID_KEY;
 		}
 		final ACASSecurity security = params[0];
 		if (security == null) {
+            if (ACAS.DEBUG_MODE) {
+                Log.w(TAG, "invalid security key");
+            }
 			return STATUS_INVALID_KEY;
 		}
 		final String sPackage = security.mPackage;
@@ -103,11 +108,19 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
 			if (ACAS.DEBUG_MODE) {
 				Log.e(TAG, "Download process fail");
 			}
+            // try to establish with the DB
+            ACAS.mModuleList = moduleDAO.select(null);
+            if (ACAS.mModuleList != null&& ACAS.mModuleList.size()>0) {
+                return STATUS_OK;
+            }
 			return STATUS_KO;
 		}
 
 		// Parsing result
 		final int status = parseModuleList(json);
+        if (ACAS.DEBUG_MODE) {
+            Log.w(TAG, "parse module list status : " +status);
+        }
 		switch (status) {
 		case STATUS_KO:
 			return getLocalModuleList();
@@ -180,12 +193,9 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
 				}
 				return STATUS_INVALID_KEY;
 			}
-
-			// Get content resolver
-			final ContentResolver cr = mContext.getContentResolver();
-
+			
 			// Delete previous data
-			cr.delete(ModuleTable.CONTENT_URI, null, null);
+            moduleDAO.deleteAll();
 
 			// Extract data
 			if (!jObj.has(JSON_ARRAY_CHILDS)) {
@@ -196,7 +206,7 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
 			}
 
             // extract parent' module
-            if (jObj.has(JSON_MOTHER) && !jObj.optString(JSON_MOTHER).equals("none")) {
+            if (jObj.has(JSON_MOTHER) && !JSON_NONE.equals(jObj.optString(JSON_MOTHER))) {
                 // Extract node
                 final JSONObject jNode = jObj.getJSONObject(JSON_MOTHER);
 
@@ -204,7 +214,9 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
                 final String moduleName = jNode.getString(JSON_NODE_NAME);
                 final String modulePackage = jNode.getString(JSON_NODE_PACKAGE);
                 final String moduleVersion = jNode.getString(JSON_NODE_VERSION);
-                ACAS.setMother(new ACASModule(modulePackage, null, moduleName, moduleVersion, null, null));
+                final ACASModule toAdd = new ACASModule(modulePackage,  moduleName, moduleVersion, null, null);
+                moduleDAO.insert(toAdd, true);
+                ACAS.setMother(toAdd);
             }
 
 			// Get static module list
@@ -223,27 +235,19 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
 				final String modulePackage = jNode.getString(JSON_NODE_PACKAGE);
 				final String moduleVersion = jNode.getString(JSON_NODE_VERSION);
 
-				// Put data into database container
-				final ContentValues cv = new ContentValues();
-				cv.put(ModuleTable.MODULE_NAME, moduleName);
-				cv.put(ModuleTable.MODULE_PACKAGE, modulePackage);
-				cv.put(ModuleTable.MODULE_VERSION, moduleVersion);
-
 				// Put data into static container
-				final ACASModule module = new ACASModule(modulePackage, null, moduleName, moduleVersion, null, null);
+				final ACASModule module = new ACASModule(modulePackage, moduleName, moduleVersion, null, null);
 
 				// Debug
 				if (ACAS.DEBUG_MODE) {
-					Log.d(TAG, "New entrie in ContentValues:");
-					Log.d(TAG, cv.toString());
+					Log.d(TAG, "New entrie in ACASModule");
 				}
 
 				// Insert into database
-				cr.insert(ModuleTable.CONTENT_URI, cv);
+				moduleDAO.insert(module, false);
 
 				// Insert into static
 				moduleList.add(module);
-
 			}
 
 			return STATUS_OK;
@@ -260,43 +264,11 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
 			Log.i(TAG, "Try to get local module list");
 		}
 
-		// Get content resolver
-		final ContentResolver cr = mContext.getContentResolver();
-
-		// Get static module list
-		ArrayList<ACASModule> moduleList = ACAS.getModuleList();
-
-		// Query local database
-		final Cursor cursor = cr.query(ModuleTable.CONTENT_URI, null, null, null, null);
-		if (cursor == null || !cursor.moveToFirst()) {
-			if (ACAS.DEBUG_MODE) {
-				Log.w(TAG, "Cursor is null or empty");
-			}
-			return STATUS_KO;
-		}
-
-		// Get column index
-		final int indexName = cursor.getColumnIndex(ModuleTable.MODULE_NAME);
-		final int indexPackage = cursor.getColumnIndex(ModuleTable.MODULE_PACKAGE);
-		final int indexVersion = cursor.getColumnIndex(ModuleTable.MODULE_VERSION);
-
-		// Extract result
-		do {
-			// Extract data
-			final String moduleName = cursor.getString(indexName);
-			final String modulePackage = cursor.getString(indexPackage);
-			final String moduleVersion = cursor.getString(indexVersion);
-
-			// Create container
-            if (ACAS.DEBUG_MODE) {
-                Log.i("INSTALL MODULE", moduleName + "#"+ modulePackage+ "#"+ moduleVersion);
-            }
-			final ACASModule module = new ACASModule(modulePackage, null, moduleName, moduleVersion, null, null);
-
-			// Add to static list
-			moduleList.add(module);
-
-		} while (cursor.moveToNext());
+        ArrayList<ACASModule> fromDB = moduleDAO.select(null);
+        if (fromDB == null || fromDB.size()==0) {
+            return STATUS_KO;
+        }
+        ACAS.mModuleList = fromDB;
 
 		return STATUS_OK;
 	}

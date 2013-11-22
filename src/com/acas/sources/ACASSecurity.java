@@ -8,13 +8,13 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Log;
 
-public class ACASSecurity {
+class ACASSecurity {
 	
 	static final String TAG = ACASSecurity.class.getSimpleName();
 	
 	static final String SHA1 = "SHA-1";
 	
-	String mSecurityKey;
+	private String mSecurityKey;
 	String mPackage;
 	boolean mIsValid = false;
 	
