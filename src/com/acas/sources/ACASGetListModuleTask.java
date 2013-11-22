@@ -95,7 +95,6 @@ public class ACASGetListModuleTask extends AsyncTask<ACASSecurity, Void, Integer
 			return STATUS_INVALID_KEY;
 		}
 		final String sPackage = security.mPackage;
-        final String sSecurityKey = security.mSecurityKey;
         final String sSecurityData = security.getEncodedData();
 
 		// Download module list
